@@ -2,5 +2,5 @@
 Code repository for the sensors and Arduino of the 2025 CU Warp Speed robotics robot submission
 
 
-Nano username: SGCW
+Nano username: SGC
 Password: password
