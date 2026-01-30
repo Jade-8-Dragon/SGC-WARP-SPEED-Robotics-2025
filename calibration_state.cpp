@@ -21,9 +21,6 @@ void calibrationState() {
 
   if (legsUp) {
 
-    //if connected to the controller, use its offsets
-    setOffsetsFromControllerData();
-
     //move legs 
     for (int i = 0; i < 6; i++) {
       float nextX = min(currentPoints[i].x + 5, targetCalibration.x);

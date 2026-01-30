@@ -13,12 +13,9 @@
 enum State {
   Initialize,
   Stand,
-  Car,
-  Crab,
-  Calibrate,
-  SlamAttack,
-  Sleep,
-  Attach
+  Calibrate, 
+  Walk,
+  Sleep
 };
 
 enum LegState {
@@ -37,7 +34,6 @@ enum Gait {
   HOP      //5
 };
 
-bool connected = false;
 bool dynamicStrideLength = true;
 
 int totalGaits = 6;
@@ -68,26 +64,6 @@ float landHeight = 70;
 float strideOvershoot = 10;
 float distanceFromCenter = 173;
 
-float crabTargetForwardAmount = 0;
-float crabForwardAmount = 0;
-
-Vector2 joy1TargetVector = Vector2(0, 0);
-float joy1TargetMagnitude = 0;
-
-Vector2 joy1CurrentVector = Vector2(0, 0);
-float joy1CurrentMagnitude = 0;
-
-Vector2 joy2TargetVector = Vector2(0, 0);
-float joy2TargetMagnitude = 0;
-
-Vector2 joy2CurrentVector = Vector2(0, 0);
-float joy2CurrentMagnitude = 0;
-
-unsigned long timeSinceLastInput = 0;
-
-float landingBuffer = 15;
-
-int attackCooldown = 0;
 long elapsedTime = 0;
 long loopStartTime = 0;
 
@@ -99,117 +75,19 @@ void setup() {
   attachServos();
   loadRawOffsetsFromEEPROM();
   stateInitialize();
+  calibrationState();
+  standingState();
 }
 
 void loop() {
   elapsedTime = millis() - loopStartTime;
   loopStartTime = millis();
 
-  connected = GetSendNRFData(); 
 
-  if (!connected) {
-    //attachServoState();
-    sleepState();
-    return;
-  }
 
-  if(currentType == RC_CONTROL_DATA) processControlData(rc_control_data);
-  if(currentType == RC_SETTINGS_DATA) processSettingsData(rc_settings_data);
+
 }
 
-void processControlData(const RC_Control_Data_Package& data) {
-  sendType = HEXAPOD_SENSOR_DATA; //when control data is being process, always send sensor data back.
-
-  dynamicStrideLength = data.dynamic_stride_length;
-
-  /*sleep from controller*/
-  if (data.sleep == 1) {
-    
-    sleepState();
-    return;
-  }
-
-  /*idle from controller*/
-  if (data.idle == 1) {
-    standingState();
-    return;
-  }
-
-  double joy1x = map(data.joy1_X, 0, 254, -100, 100);
-  double joy1y = map(data.joy1_Y, 0, 254, -100, 100);
-
-  double joy2x = map(data.joy2_X, 0, 254, -100, 100);
-  double joy2y = map(data.joy2_Y, 0, 254, -100, 100);
-
-  joy1TargetVector = Vector2(joy1x, joy1y);
-  joy1TargetMagnitude = constrain(calculateHypotenuse(abs(joy1x), abs(joy1y)), 0, 100);
-
-  joy2TargetVector = Vector2(joy2x, joy2y);
-  joy2TargetMagnitude = constrain(calculateHypotenuse(abs(joy2x), abs(joy2y)), 0, 100);
-
-  targetDistanceFromGround = distanceFromGroundBase + (data.slider2 * -1.7);
-  distanceFromGround = lerp(distanceFromGround, targetDistanceFromGround, 0.04);
-  if(distanceFromGround >= 0) distanceFromGround = targetDistanceFromGround;
-
-  distanceFromCenter = 170;
-
-  joy1CurrentVector = lerp(joy1CurrentVector, joy1TargetVector, 0.08);
-  joy1CurrentMagnitude = lerp(joy1CurrentMagnitude, joy1TargetMagnitude, 0.08);
-
-  joy2CurrentVector = lerp(joy2CurrentVector, joy2TargetVector, 0.12);
-  joy2CurrentMagnitude = lerp(joy2CurrentMagnitude, joy2TargetMagnitude, 0.12);
-
-  previousGait = currentGait;
-  currentGait = gaits[data.gait]; 
-
-  /*Drive*/
-  if (abs(joy1CurrentMagnitude) >= 10 || abs(joy2CurrentMagnitude) >= 10) {
-    carState();
-    timeSinceLastInput = millis();
-    return;
-  }
-
-  /*idle from hexapod*/
-  if (abs(timeSinceLastInput - millis()) > 5) {
-    standingState();
-    return;
-  }
-
-  /*Attack*/
-  if (data.joy1_Button == PRESSED && attackCooldown == 0) {
-    Serial.println("slam attack");
-    resetMovementVectors();
-    slamAttack();
-    standingState();
-    attackCooldown = 50;
-    loopStartTime = millis();
-    return;
-  } else {
-    attackCooldown = max(attackCooldown - elapsedTime, 0);
-  }
-}
-
-void processSettingsData(const RC_Settings_Data_Package& data) {
-  sendType = HEXAPOD_SETTINGS_DATA; //when settings data is being process, always send settings data back.
-  if (data.calibrating == 1) {
-    calibrationState();
-    return;
-  }  
-
-  //finished calibrating, save offsets.
-  if (currentState == Calibrate) {
-    saveOffsets();
-  }
-  sleepState();
-}
-
-void resetMovementVectors() {
-  joy1CurrentVector = Vector2(0, 0);
-  joy1CurrentMagnitude = 0;
-
-  joy2CurrentVector = Vector2(0, 0);
-  joy2CurrentMagnitude = 0;
-}
 
 void setCycleStartPoints(int leg) {
   cycleStartPoints[leg] = currentPoints[leg];
@@ -361,6 +239,7 @@ void moveToPos(int leg, Vector3 pos) {
 
 #define EEPROM_OFFSETS_ADDR 0  // 18 bytes
 
+//Offset Management-saves the offset servo data on no voltatile memory
 void saveOffsets() {  
   Serial.print("Saving rawOffsets to EEPROM. ");
   for (int i = 0; i < 18; i++) {
@@ -369,6 +248,7 @@ void saveOffsets() {
   Serial.println("Done");
 }
 
+//Load offset servo data from non-volatile memory
 void loadRawOffsetsFromEEPROM() {
   Serial.println("Filling rawOffsets from EEPROM.");
   for (int i = 0; i < 18; i++) {
@@ -380,6 +260,7 @@ void loadRawOffsetsFromEEPROM() {
   printRawOffsets();
 }
 
+//update the offset variables from rawOffsets
 void updateOffsetVariables() {  
   //updating Vector3 offsets[]
   //Serial.println("Filling offsets from rawOffsets.");
@@ -394,13 +275,6 @@ void updateOffsetVariables() {
   }
 }
 
-void setOffsetsFromControllerData() {    
-  
-  //dont set offsets data if the controller isnt connected
-  if(rc_settings_data.offsets[0] == -128 || !connected){
-    return;
-  }
-
   //Serial.print("Filling rawOffsets from rc_settings_data.offsets. ");
   printRawOffsets();
   for (int i = 0; i < 18; i++) {
@@ -410,12 +284,6 @@ void setOffsetsFromControllerData() {
   updateOffsetVariables();
   
   //Serial.println("Done");
-}
-
-void printConnectedStatus(){
-  Serial.print("Connected: ");
-  if(connected)Serial.println("TRUE");
-  else Serial.println("FALSE");
 }
 
 void printRawOffsets() {

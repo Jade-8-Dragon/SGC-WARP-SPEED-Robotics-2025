@@ -1,3 +1,4 @@
+#include vectors.h
 
 Vector2 GetPointOnBezierCurve(Vector2* points, int numPoints, float t) {
   Vector2 pos;
