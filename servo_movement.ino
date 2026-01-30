@@ -5,8 +5,7 @@
 
 #include "vectors.h"
 #include "Helpers.h"
-#include "RC.h"
-#include "Initializations.h"
+#include "leg_survos_config.h"
 
 #define UNPRESSED 0x1
 #define PRESSED 0x0
@@ -98,7 +97,6 @@ void setup() {
   // Initialize serial communication
   Serial.begin(9600);
   attachServos();
-  RC_Setup();
   loadRawOffsetsFromEEPROM();
   stateInitialize();
 }
