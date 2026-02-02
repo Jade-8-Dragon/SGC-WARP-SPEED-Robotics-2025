@@ -1,9 +1,10 @@
 #include <Arduino.h>
 #include <Servo.h>
 #include <math.h>
-#include "vectors.h"
-#include "Helpers.h"
-#include "bezier.cpp"
+#include "../../vectors.h"
+#include "../../Helpers.h"
+#include "../../leg_survos_config.h"
+#include "../../bezier.cpp"
 
 // Pin definitions for leg 1
 #define SHOULDER_PIN 5
@@ -66,7 +67,7 @@ float globalRotationMultiplier = 0.55;
 bool dynamicStrideLength = true;
 
 // Bezier curve arrays for single leg
-Vector3 ControlPoints[4];
+Vector3 ControlPoints[4];2
 Vector3 RotateControlPoints[5];
 
 // Target rotation
