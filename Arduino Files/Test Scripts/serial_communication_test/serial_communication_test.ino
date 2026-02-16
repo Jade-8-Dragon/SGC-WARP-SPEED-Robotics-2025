@@ -1,7 +1,7 @@
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
 
-    while (!serial){
+    while (!Serial){
         ; // wait for serial port to connect. Needed for native USB port only
     }
 }
@@ -15,7 +15,7 @@ void loop() {
         String commandFromJetson = Serial.readStringUntil(TERMINATOR);
 
         // confirm
-        String ackMsg = "Hello Jetson! This is what I got from you: " + commandFromJetson + TERMINATOR;
+        String ackMsg = "Hello Jetson! This is what I got from you: " + commandFromJetson;
         Serial.print(ackMsg);
         //Serial.flush();
     }
