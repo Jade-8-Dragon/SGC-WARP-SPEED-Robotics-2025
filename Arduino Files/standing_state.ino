@@ -1,4 +1,3 @@
-
 //Standing Control Points Array
 Vector3 SCPA[6][10];
 
@@ -18,7 +17,8 @@ void standingState() {
   standingEndPoint = Vector3(distanceFromCenter, 0, distanceFromGround + standingDistanceAdjustment);
   standLoops = 2;
   // We only set the starting, inbetween, and ending points one time, which is when we enter the standing state.
-  if (currentState == Calibrate || currentState == Initialize) moveAllAtOnce = true;
+  if (currentState == Calibrate || currentState == Initialize || currentState == SlamAttack || currentState == Sleep || currentState == Attach) moveAllAtOnce = true;
+  if (currentState == SlamAttack || currentState == Sleep) highLift = true;
   if (currentState != Stand) {
     
     set3HighestLeg();
