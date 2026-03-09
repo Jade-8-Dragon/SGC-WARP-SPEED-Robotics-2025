@@ -15,9 +15,21 @@
 #define UNPRESSED 0x1  // Button not pressed (active LOW, pin reads HIGH)
 #define PRESSED 0x0    // Button pressed (active LOW, pin reads LOW)
 
+
+//============ SERIAL COMMUNICATION BUFFERS AND TERMINATORS========
+const byte numBytes = 16;
+char receivedBytes[numBytes];
+byte numReceived = 0;
+bool newData = false; 
+
 // ============ PWM SERVO DRIVER OBJECT ============
 // PCA9685 I2C device for controlling 16 PWM servo channels (using 18 for 6 legs × 3 servos each)
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+// =========== SERVO FOR 6TH LEG ===============
+// Servo myServo;
+// Servo myServo;
+// Servo myServo;
 
 
 // ============ SETUP - RUNS ONCE AT STARTUP ============
@@ -28,35 +40,109 @@ void setup() {
   // Initialize the PCA9685 PWM driver on the default I2C address (0x40)
   // This must be done before using any servo control functions
   pwm.begin();
-  
-  // Load servo offset calibrations from EEPROM memory
-  // These offsets fine-tune each servo's home position
-  loadRawOffsetsFromEEPROM();
+  pwm.setPWMFreq(50);//set to 50 hz for servos as stated in its datasheet
 
-  //These amounts are only here for now for foward walking testing, change at leasure
-  forwardAmount = 20;  // Desired forward/backward speed (0-100)
-  turnAmount = 0;     // Desired rotation amount (negative=left, positive=right)
+  // ============ WALKING STATE VARIABLES ============
+  // Movement control values (set by autonomous mode or user input)
+  directionVector = Vector2(0, 0);  // Desired movement direction and magnitude (x=forward/back, y=sideways)
+  forwardAmount = 0;  // Desired forward/backward speed
+  turnAmount = 0;     // Desired rotation amount
+
+  //Assembly test
+  // rotateToAngle(0, Vector3(90,180, 0));
+  // rotateToAngle(1, Vector3(90,180, 0));
+  //rotateToAngle(2, Vector3(90,90, 90));
+  //rotateToAngle(3, Vector3(90,180, 0));
+  // //rotateToAngle(5, Vector3(90,180, 0));
+
+  //Move in right direction test
+  // moveToPos(0, Vector3(30,200, 150));
+  // moveToPos(1, Vector3(-30,130, 80));
+  // moveToPos(3, Vector3(0,130, 80));
+  // moveToPos(2, Vector3(0,130, 80));
+  
+  stateInitialize();
+
+
+
+
 }
 
 // ============ MAIN LOOP - RUNS CONTINUOUSLY ============
 void loop() {
   // Update elapsed time counter (milliseconds since startup)
   elapsedTime = millis();
+  
+  // readSerial();
+  // directionVector.x = receivedBytes[0];
+  // directionVector.y = receivedBytes[1];
 
-  //When Serial communication is introduced, the foward and turn amount will be parsed before this walk state
- // State machine - call appropriate state function based on current state
-  switch(currentState) {
-    case Initialize:
-      stateInitialize();
-      break;
-    case Stand:
-      //StandState();  // If this function exists
-      break;
-    case Walk:
-      WalkState();   // Walking function
-      break;
-  }
+  // forwardAmount = receivedBytes[2];
+  // turnAmount = receivedBytes[3];
+  // newData = false;
 
+
+//  //State machine - call appropriate state function based on current state
+//   switch(currentState) {
+//     case Initialize:
+//       stateInitialize();
+//       break;
+//     case Stand:
+//       //StandState();  // If this function exists
+//       break;
+//     case Walk:
+//       WalkState();   // Walking function
+//       break;
+//   }
+
+}
+
+
+//============= READ FROM SERIAL ==========
+void readSerial() {
+    static boolean recvInProgress = false;
+    static byte ndx = 0;
+    byte startMarker = 0x3C;
+    byte endMarker = 0x3E;
+    byte rb;
+   
+
+    while (Serial.available() > 0 && newData == false) {
+        rb = Serial.read();
+
+        if (recvInProgress == true) {
+            if (rb != endMarker) {
+                receivedBytes[ndx] = rb;
+                ndx++;
+                if (ndx >= numBytes) {
+                    ndx = numBytes - 1;
+                }
+            }
+            else {
+                receivedBytes[ndx] = '\0'; // terminate the string
+                recvInProgress = false;
+                numReceived = ndx;  // save the number for use when printing
+                ndx = 0;
+                newData = true;
+            }
+        }
+
+        else if (rb == startMarker) {
+            recvInProgress = true;
+        }
+    }
+}
+
+void showNewData() {
+    if (newData == true) {
+        Serial.print("This just in (HEX values)... ");
+        for (byte n = 0; n < numReceived; n++) {
+            Serial.print(receivedBytes[n], HEX);
+            Serial.print(' ');
+        }
+        Serial.println();
+        newData = false;
+    }
 }
 
 
@@ -82,7 +168,7 @@ void setCycleStartPoints() {
 // Standard servo range: 500µs = 0°, 2500µs = 180°
 // Formula: microseconds = 500 + (angle / 180) × (2500 - 500)
 int angleToMicroseconds(double angle) {
-  double val = 500.0 + (((2500.0 - 500.0) / 180.0) * angle);
+  double val = 450.0 + (((2550.0 - 450.0) / 180.0) * angle);
   return (int)val;
 }
 
@@ -166,49 +252,31 @@ void moveToPos(int leg, Vector3 pos) {
     return;
   }
 
-  // Extract position coordinates
+
   float x = pos.x;
   float y = pos.y;
   float z = pos.z;
 
-  // Get servo offset calibrations for this leg
-  float o1 = offsets[leg].x;  // Shoulder/coxa offset
-  float o2 = offsets[leg].y;  // Elbow/femur offset
-  float o3 = offsets[leg].z;  // Wrist/tibia offset
+  float o1 = offsets[leg].x;
+  float o2 = offsets[leg].y;
+  float o3 = offsets[leg].z;
 
-  // ===== SHOULDER ANGLE (theta1) =====
-  // Rotation around vertical axis - determines direction to foot in XY plane
-  float theta1 = atan2(y, x) * (180 / PI) + o1;  // base angle + offset
+  float d = sqrt(x * x + y * y);
+  float r = d - shoulderLength;
+  float c = sqrt(z * z + r * r);
 
-  // ===== ELBOW/WRIST ANGLES (theta2, theta3) - 2-link IK in XZ plane =====
-  // Calculate horizontal distance from shoulder to foot (in XY plane)
-  float l = sqrt(x * x + y * y);
-  
-  // Subtract shoulder segment length to get remaining distance for elbow/wrist to cover
-  float l1 = l - shoulderLength;
-  
-  // Calculate total straight-line distance from elbow joint to foot
-  float h = sqrt(l1 * l1 + z * z);
+  float theta1 = atan2(y,x) * 180.0 / PI;
+  Serial.print("atan2(y, x): "); Serial.println(atan2(y,x));
+  float theta2 = atan2(r,-z) * 180.0 / PI + acos(( elbowLength * elbowLength + c * c - wristLength * wristLength) / (2 * elbowLength * c)) * 180.0 / PI;
+  float theta3 = 180.0 - acos((elbowLength * elbowLength + wristLength * wristLength - c * c) / (2 * elbowLength * wristLength)) * 180.0 / PI;
 
-  // ===== Using law of cosines for 2-link arm IK =====
-  // Calculate angle at elbow joint using law of cosines
-  // h² = femur² + tibia² - 2·femur·tibia·cos(angle_at_elbow)
-  float phi1 = acos(constrain((pow(h, 2) + pow(elbowLength, 2) - pow(wristLength, 2)) / (2 * h * elbowLength), -1, 1));
+  Serial.print("Theta 1 (shoulder): "); Serial.println(theta1);
+  Serial.print("Theta 2 (elbow): "); Serial.println(theta2);
+  Serial.print("Theta 3 (wrist): "); Serial.println(theta3);
+  Serial.println("====================");
   
-  // Calculate angle from horizontal to line connecting elbow to foot
-  float phi2 = atan2(z, l1);
-  
-  // Combine angles: femur angle = phi1 + phi2 + offset
-  float theta2 = (phi1 + phi2) * 180 / PI + o2;
-  
-  // Calculate tibia angle using law of cosines (angle at wrist)
-  float phi3 = acos(constrain((pow(elbowLength, 2) + pow(wristLength, 2) - pow(h, 2)) / (2 * elbowLength * wristLength), -1, 1));
-  
-  // Tibia angle = 180° - angle_at_wrist + offset (180° for straight reference)
-  float theta3 = 180 - (phi3 * 180 / PI) + o3;
-
   // Store calculated angles as target
-  targetRot = Vector3(theta1, theta2, theta3);
+  targetRot = Vector3(constrain(theta1,0,180), constrain(theta2,0,180), constrain(theta3, 0, 180));
 
   // Convert angles to PWM pulse widths
   int shoulderMicroseconds = angleToMicroseconds(targetRot.x);
@@ -257,83 +325,4 @@ void moveToPos(int leg, Vector3 pos) {
       break;
   }
   return;
-}
-
-// ============ SERVO OFFSET CALIBRATION SYSTEM ============
-
-// EEPROM memory address where servo offsets are stored (18 bytes for 6 legs × 3 servos)
-#define EEPROM_OFFSETS_ADDR 0
-
-// Save all servo offset calibrations to EEPROM for persistent storage
-// Offsets are used to fine-tune servo home positions across power cycles
-void saveOffsets() {  
-  Serial.print("Saving rawOffsets to EEPROM. ");
-  // Write each of the 18 offset values (3 per leg × 6 legs)
-  for (int i = 0; i < 18; i++) {
-    EEPROM.put(EEPROM_OFFSETS_ADDR + i * sizeof(int8_t), rawOffsets[i]);
-  }
-  Serial.println("Done");
-}
-
-// Load servo offset calibrations from EEPROM memory at startup
-// These calibrations are used to correct for manufacturing tolerances and servo drift
-void loadRawOffsetsFromEEPROM() {
-  Serial.println("Filling rawOffsets from EEPROM.");
-  // Read all 18 offset values from EEPROM
-  for (int i = 0; i < 18; i++) {
-    int8_t val;
-    EEPROM.get(EEPROM_OFFSETS_ADDR + i * sizeof(int8_t), val);
-    rawOffsets[i] = val;
-  }
-  // Convert raw offsets into Vector3 format for each leg
-  updateOffsetVariables();
-  // Print calibration values to serial monitor for verification
-  printRawOffsets();
-}
-
-// Convert raw offset array into Vector3 offsets array
-// Raw offsets (int8_t × 18) → Vector3 offsets[6] (each containing x, y, z offsets)
-// Also adds baseOffset to position legs at correct distance from body
-void updateOffsetVariables() {  
-  // Build offset Vector3 for each leg by combining raw offsets with base offset
-  for (int i = 0; i < 6; ++i) {
-    offsets[i] = Vector3(rawOffsets[i * 3] + baseOffset.x, 
-                         rawOffsets[i * 3 + 1] + baseOffset.y, 
-                         rawOffsets[i * 3 + 2] + baseOffset.z);
-  }
-}
-
-// Print servo calibration data to serial monitor for debugging
-// Currently disabled with early return (modify to enable output)
-void printRawOffsets() {
-  return;  // Early return disables all serial output below
-  
-  Serial.print("Raw Offsets: ");
-  for (int i = 0; i < 18; i++) {
-    Serial.print(rawOffsets[i]);
-    if (i < 17) {
-      Serial.print(" ");
-    }
-  }
-  Serial.println();
-
-  Serial.print("Offsets: ");
-  for (int i = 0; i < 6; i++) {
-    Serial.print(offsets[i].toString());
-    if (i < 5) {
-      Serial.print(" ");
-    }
-  }
-  Serial.println();
-
-  Serial.print("EEPROM: ");
-  for (int i = 0; i < 18; i++) {
-    int8_t val;
-    EEPROM.get(i * sizeof(int8_t), val);
-    Serial.print(val);
-    if (i < 17) {
-      Serial.print(" ");
-    }
-  }
-  Serial.println();
 }

@@ -1,24 +1,27 @@
 void stateInitialize(){
-  moveToPos(0, Vector3(160,0,0));
-  moveToPos(1, Vector3(160,0,0));
-  moveToPos(2, Vector3(160,0,0));
-  moveToPos(3, Vector3(160,0,0));
-  moveToPos(4, Vector3(160,0,0));
-  moveToPos(5, Vector3(160,0,0));
+  delay(3000);
+
+  //Has the leg move in an upward 90 degree angle
+  moveToPos(0, Vector3(0,200, 150));
+  moveToPos(1, Vector3(0,200, 150));
+  moveToPos(2, Vector3(0,200, 150));
+  moveToPos(3, Vector3(0,200, 150));
+  moveToPos(4, Vector3(0,200, 150));
+  moveToPos(5, Vector3(0,200, 150));
+
+  delay(2000);
 
 
-  delay(25);
-
-
-
-  moveToPos(0, Vector3(225,0,115));
-  moveToPos(1, Vector3(225,0,115));
-
-  moveToPos(2, Vector3(225,0,115));
-  moveToPos(3, Vector3(225,0,115));
-  moveToPos(4, Vector3(225,0,115));
-  moveToPos(5, Vector3(225,0,115));
+  //ready position
+  moveToPos(0, Vector3(0,130, 80));
+  moveToPos(1, Vector3(0,130, 80));
+  moveToPos(2, Vector3(0,130, 80));
+  moveToPos(3, Vector3(0,130, 80));
+  moveToPos(4, Vector3(0,130, 80));
+  moveToPos(5, Vector3(0,130, 80));
   //return;
 
-  delay(50);
+  delay(1000);
+
+  currentState = Walk;
 }

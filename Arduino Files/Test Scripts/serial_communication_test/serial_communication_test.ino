@@ -12,12 +12,16 @@ void loop() {
     if (Serial.available() > 0) {
         //chat messageBuffer[32];
         //int size = Serial.readBytesUntil('\n', messageBuffer, 32);
-        String commandFromJetson = Serial.readStringUntil(TERMINATOR);
+        uint16_t commandFromJetson = Serial.read());
+        uint8_t 1111111
 
         // confirm
         String ackMsg = "Hello Jetson! This is what I got from you: " + commandFromJetson;
         Serial.print(ackMsg);
         //Serial.flush();
+
+
+        fwardamount = 
     }
     delay(500);
 
