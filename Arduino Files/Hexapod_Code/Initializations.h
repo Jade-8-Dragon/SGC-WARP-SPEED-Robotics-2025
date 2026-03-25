@@ -11,12 +11,12 @@ struct Leg{
   Leg leg##n = {shoulder, elbow, wrist};
 
 // Create leg objects with servo pin assignments (Arduino pins)
-DEFINE_LEG(0, 0, 1, 2)  // Leg 0: shoulder=22, elbow=23, wrist=24
-DEFINE_LEG(1, 3, 4, 5)  // Leg 1: shoulder=25, elbow=26, wrist=27
-DEFINE_LEG(2, 6, 7, 8)  // Leg 2: shoulder=28, elbow=29, wrist=30
-DEFINE_LEG(3, 9, 10, 11)  // Leg 3: shoulder=31, elbow=32, wrist=33
-DEFINE_LEG(5, 12, 13, 14)  // Leg 4: shoulder=34, elbow=35, wrist=36
-DEFINE_LEG(4, 37, 38, 39)  // Leg 5: shoulder=37, elbow=38, wrist=39
+DEFINE_LEG(0, 10, 11, 12)  // Leg 0: shoulder=22, elbow=23, wrist=24
+DEFINE_LEG(1, 2, 1, 0)  // Leg 1: shoulder=25, elbow=26, wrist=27
+DEFINE_LEG(2, 7,8, 9)  // Leg 2: shoulder=28, elbow=29, wrist=30
+DEFINE_LEG(3, 6, 5, 4)  // Leg 3: shoulder=31, elbow=32, wrist=33
+DEFINE_LEG(4, 13, 14, 15)  // Leg 4: shoulder=34, elbow=35, wrist=36
+DEFINE_LEG(5, 10, 11, 3)  // Leg 5: shoulder=37, elbow=38, wrist=39
 
 // ============ LEG DIMENSIONS ============
 // Physical lengths of each leg segment (in mm)
@@ -30,6 +30,7 @@ float legLength = shoulderLength+elbowLength+wristLength;  // Total extended leg
 Vector2 directionVector; //The Direction of movement with x being foward y sideways
 float forwardAmount;  // Desired forward/backward speed (0-100)
 float turnAmount;     // Desired rotation amount (negative=left, positive=right)
+float liftHeight;
 
 // ============ POSITION TRACKING ============
 // Current 3D position (x, y, z) of each leg's endpoint
@@ -53,6 +54,26 @@ float strideMultiplier[6] = {-1, 1, -1, 1, -1, 1};
 // Pattern: -1 (left), 0 (center), 1 (right) repeated for pairs
 float rotationMultiplier[6] = {-1, 1, 0, 0, -1 , 1};
 
+//=========== LEG PIVOT POSITIONS AND ANGLES ==========
+Vector2 legPivots[6] = {
+  Vector2(-77,  107),
+  Vector2(77, 107),
+  Vector2(-100,   0),   
+  Vector2(100,   0),   
+  Vector2(-77, -107),  
+  Vector2(77,  -107)   
+};
+
+float legAngles[6] = {
+   -35.739,   // front left 0
+    35.739,   // front right 1
+   -90,   // middle left 2
+    -270,   // middle right 3
+  -125.739,   // rear left 4
+   125.739    // rear right 5
+};
+
+
 // ============ BEZIER CURVE CONTROL POINTS ============
 // Control points for Bezier curve during propelling phase (leg pushing)
 Vector3 ControlPoints[10];
@@ -64,15 +85,17 @@ Vector3 RotateControlPoints[10];
 enum State {
   Assembly,  //used for attaching all of the servos 
   Initialize,  // Startup/calibration state - attach servos, load settings
-  Stand,       // Standing still (not walking, stay in position)
+  Stand,
+  SimpleWalk,       // Standing still (not walking, stay in position)
   Walk
 };
 
 // Individual leg phase within the gait cycle
 enum LegState {
-  Propelling,  // Leg pushing body forward (foot on ground)
-  Lifting,     // Leg lifting up to swing forward (foot in air)
-  Standing,    // Leg standing still (not active in current gait)
+  Lifting,  // Leg up and forward (foot on air)
+  Up,     // Leg lifting up
+  Down,    // Leg going down
+  Propelling,   //Leg pushing body (foot on surface)
   Reset        // Leg resetting to initial position before next cycle
 };
 
@@ -107,14 +130,4 @@ float distanceFromGroundBase = -60;
 float distanceFromGround = 50;
 // Target height to gradually move toward
 float targetDistanceFromGround = 0;
-
-// ============ LEG MOVEMENT PARAMETERS ============
-// How high legs lift above ground during swing phase (millimeters)
-float liftHeight = 130;
-// How far down legs land before beginning propulsion phase
-float landHeight = 70;
-// Extra forward distance to overshoot when placing leg (increases stride)
-float strideOvershoot = 10;
-// Distance from body center to leg attachment point (millimeters)
-float distanceFromCenter = 173;
 

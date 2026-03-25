@@ -58,19 +58,15 @@ public:
     return result;
   }
 
-  Vector2 rotate(int angle, Vector2 pivot) {
-    // Translate line so pivot point is at the origin
-    x -= pivot.x;
-    y -= pivot.y;
+  Vector2 bodyToLeg(float angle)
+  {
+    float angleRad = angle * (PI / 180);
 
-    // Rotate point by angle
-    int x_rotated = x * cos(angle) - y * sin(angle);
-    int y_rotated = x * sin(angle) + y * cos(angle);
+    float xleg = x * cos(angleRad) + y * sin(angleRad);
+    float yleg = -1 * x * sin(angleRad) + y * cos(angleRad);
 
-    // Translate point back to original position
-    x = x_rotated + pivot.x;
-    y = y_rotated + pivot.y;
-    return Vector2(x,y);
+    return Vector2 (xleg, yleg);
+
   }
 };
 
@@ -128,24 +124,16 @@ public:
     String ret = "(" + xs + "," + ys + "," + zs + ")";
     return ret;
   }
+  
+  Vector3 bodyToLeg(float angle)
+  {
+    float angleRad = angle * (PI / 180);
 
-  Vector3 rotate(int angle, Vector2 pivot) {
-    // Translate line so pivot point is at the origin
-    if(angle == 0) return Vector3(x,y,z);
+    float xleg = x * cos(angleRad) + y * sin(angleRad);
+    float yleg = -1 * x * sin(angleRad) + y * cos(angleRad);
 
-    x -= pivot.x;
-    y -= pivot.y;
-    float angleRad = radians(angle);
+    return Vector3 (xleg, yleg, z);
 
-    // Rotate point by angle
-    int x_rotated = x * cos(angleRad) - y * sin(angleRad);
-    int y_rotated = x * sin(angleRad) + y * cos(angleRad);
-
-    // Translate point back to original position
-    x = x_rotated + pivot.x;
-    y = y_rotated + pivot.y;
-
-    return Vector3(x,y,z);
   }
 
   float distanceTo(Vector3 v){

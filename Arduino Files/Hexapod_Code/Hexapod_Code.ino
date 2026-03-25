@@ -22,18 +22,18 @@ char receivedBytes[numBytes];
 byte numReceived = 0;
 bool newData = false; 
 
+//============ LEG 5 SERVO DECLERATIONS=====
+Servo leg5Shoulder;
+Servo leg5Elbow;
+Servo leg5Wrist; 
+
 // ============ PWM SERVO DRIVER OBJECT ============
 // PCA9685 I2C device for controlling 16 PWM servo channels (using 18 for 6 legs × 3 servos each)
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-// =========== SERVO FOR 6TH LEG ===============
-// Servo myServo;
-// Servo myServo;
-// Servo myServo;
-
 
 // ============ SETUP - RUNS ONCE AT STARTUP ============
-void setup() {
+void setup(){ 
   // Initialize serial communication at 9600 baud for debugging output
   Serial.begin(9600);
   
@@ -42,29 +42,27 @@ void setup() {
   pwm.begin();
   pwm.setPWMFreq(50);//set to 50 hz for servos as stated in its datasheet
 
+  attach_servos();
+
   // ============ WALKING STATE VARIABLES ============
   // Movement control values (set by autonomous mode or user input)
   directionVector = Vector2(0, 0);  // Desired movement direction and magnitude (x=forward/back, y=sideways)
-  forwardAmount = 0;  // Desired forward/backward speed
+  forwardAmount = 50;  // Desired forward/backward speed
   turnAmount = 0;     // Desired rotation amount
-
-  //Assembly test
-  // rotateToAngle(0, Vector3(90,180, 0));
-  // rotateToAngle(1, Vector3(90,180, 0));
-  //rotateToAngle(2, Vector3(90,90, 90));
-  //rotateToAngle(3, Vector3(90,180, 0));
-  // //rotateToAngle(5, Vector3(90,180, 0));
-
-  //Move in right direction test
-  // moveToPos(0, Vector3(30,200, 150));
-  // moveToPos(1, Vector3(-30,130, 80));
-  // moveToPos(3, Vector3(0,130, 80));
-  // moveToPos(2, Vector3(0,130, 80));
-  
+  //AssemblySetup();
   stateInitialize();
 
+  for(int i = 0; i<6;i++){
+    Vector2 v = Vector2(40,0).bodyToLeg(legAngles[i]);
 
+    Serial.print(i);
+    Serial.print(" -> ");
+    Serial.print(v.x);
+    Serial.print(" , ");
+    Serial.print(v.y);
 
+    Serial.println(currentPoints[i].toString());
+  }
 
 }
 
@@ -72,28 +70,37 @@ void setup() {
 void loop() {
   // Update elapsed time counter (milliseconds since startup)
   elapsedTime = millis();
-  
-  // readSerial();
-  // directionVector.x = receivedBytes[0];
-  // directionVector.y = receivedBytes[1];
+  readSerial();
+  if(newData){
+    forwardAmount = receivedBytes[0];
+    turnAmount    = receivedBytes[1];
+    liftHeight    = receivedBytes[2];
 
-  // forwardAmount = receivedBytes[2];
-  // turnAmount = receivedBytes[3];
-  // newData = false;
+    Serial.print("Forward Amount = ");
+    Serial.println(forwardAmount, HEX);
+
+    Serial.print("Turn Amount = ");
+    Serial.println(turnAmount, HEX);
+
+    Serial.print("Lift Height = ");
+    Serial.println(liftHeight, HEX);
+
+    newData = false;
+  }
 
 
-//  //State machine - call appropriate state function based on current state
-//   switch(currentState) {
-//     case Initialize:
-//       stateInitialize();
-//       break;
-//     case Stand:
-//       //StandState();  // If this function exists
-//       break;
-//     case Walk:
-//       WalkState();   // Walking function
-//       break;
-//   }
+ //State machine - call appropriate state function based on current state
+  // switch(currentState) {
+  //   case Initialize:
+  //     stateInitialize();
+  //     break;
+  //   case Stand:
+  //     //StandState();  // If this function exists
+  //     break;
+  //   case Walk:
+  //     WalkState();   // Walking function
+  //     break;
+  // }
 
 }
 
@@ -145,6 +152,17 @@ void showNewData() {
     }
 }
 
+
+// ============ SERVO ATTACHMENT FOR LEG 6 ================
+void attach_servos() {
+  leg5Shoulder.write(90);
+  leg5Elbow.write(180);
+  leg5Wrist.write(90);
+
+  leg5Shoulder.attach(leg5.shoulder);
+  leg5Elbow.attach(leg5.elbow);
+  leg5Wrist.attach(leg5.wrist);
+}
 
 // ============ GAIT CYCLE MANAGEMENT ============
 
@@ -216,9 +234,9 @@ void rotateToAngle(int leg, Vector3 targetRot) {
       break;
 
     case 5:
-      pwm.writeMicroseconds(leg5.shoulder,shoulderMicroseconds);
-      pwm.writeMicroseconds(leg5.elbow,elbowMicroseconds);
-      pwm.writeMicroseconds(leg5.wrist,wristMicroseconds);
+      leg5Shoulder.writeMicroseconds(shoulderMicroseconds);
+      leg5Elbow.writeMicroseconds(elbowMicroseconds);
+      leg5Wrist.writeMicroseconds(wristMicroseconds);
       break;
 
     default:
@@ -257,23 +275,23 @@ void moveToPos(int leg, Vector3 pos) {
   float y = pos.y;
   float z = pos.z;
 
-  float o1 = offsets[leg].x;
-  float o2 = offsets[leg].y;
-  float o3 = offsets[leg].z;
+  // float o1 = offsets[leg].x;
+  // float o2 = offsets[leg].y;
+  // float o3 = offsets[leg].z;
 
   float d = sqrt(x * x + y * y);
   float r = d - shoulderLength;
   float c = sqrt(z * z + r * r);
 
   float theta1 = atan2(y,x) * 180.0 / PI;
-  Serial.print("atan2(y, x): "); Serial.println(atan2(y,x));
+  //Serial.print("atan2(y, x): "); Serial.println(atan2(y,x));
   float theta2 = atan2(r,-z) * 180.0 / PI + acos(( elbowLength * elbowLength + c * c - wristLength * wristLength) / (2 * elbowLength * c)) * 180.0 / PI;
   float theta3 = 180.0 - acos((elbowLength * elbowLength + wristLength * wristLength - c * c) / (2 * elbowLength * wristLength)) * 180.0 / PI;
 
-  Serial.print("Theta 1 (shoulder): "); Serial.println(theta1);
-  Serial.print("Theta 2 (elbow): "); Serial.println(theta2);
-  Serial.print("Theta 3 (wrist): "); Serial.println(theta3);
-  Serial.println("====================");
+  // Serial.print("Theta 1 (shoulder): "); Serial.println(theta1);
+  // Serial.print("Theta 2 (elbow): "); Serial.println(theta2);
+  // Serial.print("Theta 3 (wrist): "); Serial.println(theta3);
+  // Serial.println("====================");
   
   // Store calculated angles as target
   targetRot = Vector3(constrain(theta1,0,180), constrain(theta2,0,180), constrain(theta3, 0, 180));
@@ -316,9 +334,14 @@ void moveToPos(int leg, Vector3 pos) {
       break;
 
     case 5:
-      pwm.writeMicroseconds(leg5.shoulder,shoulderMicroseconds);
-      pwm.writeMicroseconds(leg5.elbow,elbowMicroseconds);
-      pwm.writeMicroseconds(leg5.wrist,wristMicroseconds);
+
+      leg5Shoulder.writeMicroseconds(shoulderMicroseconds);
+      leg5Elbow.writeMicroseconds(elbowMicroseconds);
+      leg5Wrist.writeMicroseconds(wristMicroseconds);
+      
+      // pwm.writeMicroseconds(leg5.shoulder,shoulderMicroseconds);
+      // pwm.writeMicroseconds(leg5.elbow,elbowMicroseconds);
+      // pwm.writeMicroseconds(leg5.wrist,wristMicroseconds);
       break;
 
     default:

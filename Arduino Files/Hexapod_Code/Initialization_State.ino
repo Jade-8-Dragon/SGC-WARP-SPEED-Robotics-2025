@@ -13,12 +13,12 @@ void stateInitialize(){
 
 
   //ready position
-  moveToPos(0, Vector3(0,130, 80));
-  moveToPos(1, Vector3(0,130, 80));
-  moveToPos(2, Vector3(0,130, 80));
-  moveToPos(3, Vector3(0,130, 80));
-  moveToPos(4, Vector3(0,130, 80));
-  moveToPos(5, Vector3(0,130, 80));
+  moveToPos(0, Vector3(0,150, -150));
+  moveToPos(1, Vector3(0,150, -150));
+  moveToPos(2, Vector3(0,150, -150));
+  moveToPos(3, Vector3(0,150, -150));
+  moveToPos(4, Vector3(0,150, -150));
+  moveToPos(5, Vector3(0,150, -150));
   //return;
 
   delay(1000);
