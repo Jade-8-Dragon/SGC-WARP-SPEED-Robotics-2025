@@ -1,163 +1,129 @@
+Vector3 homeFoot[6];
+float legPhaseOffset[6];
 
-float  tArray[6];
-int ControlPointsAmount = 0;
-int RotateControlPointsAmount = 0;
-float pushFraction = 3.1/6.0;
-float speedMultiplier = 0.5;
-float strideLengthMultiplier = 0.5;
-float liftHeightMultiplier = 1.3;
-float maxStrideLength = 200;
-float maxSpeed = 100;
-float legPlacementAngle = 54;
-// int leftSlider = 50;
-float globalSpeedMultiplier = 0.55;
-float globalRotationMultiplier = 0.55;
+float gaitPhase = 0.0f;
+float gaitIncrement = 0.0;
 
-void WalkState() {
-
-  if(currentState != Walk){
-    Serial.println("Walk State.");
-    currentState = Walk;
-
-    for(int i = 0; i < 6; i++){
-      legStates[i] = Reset;
-    }
-
-    // Tripod groups
-    cycleProgress[0] = 0;
-    cycleProgress[3] = 0;
-    cycleProgress[4] = 0;
-
-    cycleProgress[1] = points/2;
-    cycleProgress[2] = points/2;
-    cycleProgress[5] = points/2;
-
-    pushFraction = 0.5;     // half stance
-    speedMultiplier = 1.0;
-    strideLengthMultiplier = 1.2;
-    liftHeightMultiplier = 1.1;
-    maxStrideLength = 200;
-    maxSpeed = 200;
-  }
-
+void gethomeFootpos(){
   for(int i = 0; i < 6; i++){
-    tArray[i] = (float)cycleProgress[i] / points;
+    homeFoot[i] = currentPoints[i];
   }
-
-  for(int i = 0; i < 6; i++){
-    moveToPos(i, getTripodGaitPoint(i));
-  }
-
-  float progressChangeAmount =
-      max(abs(forwardAmount), abs(turnAmount)) * speedMultiplier * globalSpeedMultiplier;
-
-  progressChangeAmount = constrain(progressChangeAmount,0,maxSpeed);
-
-  for(int i = 0; i < 6; i++){
-    cycleProgress[i] += progressChangeAmount;
-
-    if(cycleProgress[i] >= points){
-      cycleProgress[i] -= points;
-    }
-  }
+return;
 }
 
+void WalkState(){
 
-
-Vector3 getTripodGaitPoint(int leg){
-
-  float t = tArray[leg];
-  Vector3 p;
-  Vector2 d;
-
-  float stepLength = 15;
-
-  //Leg Pushing the Body Forward (leg moves backword on ground)
-  if(0.0 <= t && t < 0.25){
-    if(legStates[leg] != Propelling)
-      setCycleStartPoints(leg);
-    legStates[leg] = Propelling;
-
-    d = Vector2(stepLength,0).bodyToLeg(legAngles[leg]);
-    float dx = d.x;
-    float dy = d.y;
     
-    float s = t / 0.25 ;
+    legPhaseOffset[0] = 0.0;
+    legPhaseOffset[3] = 0.0;
+    legPhaseOffset[4] = 0.0;
 
-    float x = cycleStartPoints[leg].x - (dx * s);
-    float y = cycleStartPoints[leg].y - (dy * s);
-    float z = cycleStartPoints[leg].z;
+    legPhaseOffset[1] = 0.5;
+    legPhaseOffset[2] = 0.5;
+    legPhaseOffset[5] = 0.5;
 
-    p = Vector3(x,y,z);
-  }
+    for (int i = 0; i < 6; i++) {
+        float phase = gaitPhase + legPhaseOffset[i];
+        if (phase >= 1.0f) phase -= 1.0f;
 
-  //Leg Going Vertically Up
-  else if(0.25 < t && t < 0.5){
-    if(legStates[leg] != Up)
-      setCycleStartPoints(leg);
-    legStates[leg] = Up;
-
-    float s = (t - 0.25) / (1.0 - 0.5);
-
-    float x = cycleStartPoints[leg].x;
-    float y = cycleStartPoints[leg].y;
-    float z = cycleStartPoints[leg].z + (liftHeight * s);
-
-    p = Vector3(x,y,z);
-  }
-
-  // Lifting so leg is moving in the air
-  else if(0.5 <= t && t < 0.75){
-    if(legStates[leg] != Lifting)
-      setCycleStartPoints(leg);
-    legStates[leg] = Lifting;
-    
-    d = Vector2(stepLength,0).bodyToLeg(legAngles[leg]);
-    float dx = d.x;
-    float dy = d.y;
-
-    float s = t / pushFraction;   // normalize 0→1
-    float x = cycleStartPoints[leg].x + (dx * s);
-    float y = cycleStartPoints[leg].y + (dy * s);
-    float z = liftHeight;
-    
-    p = Vector3(x,y,z);
-  }
-
-  // leg is going down
-  else if(0.75 <= t && t < 1){
-    if(legStates[leg] != Down)
-      setCycleStartPoints(leg);
-    legStates[leg] = Down;
-
-    float s = t / pushFraction;   // normalize 0→1
-    float x = cycleStartPoints[leg].x;
-    float y = cycleStartPoints[leg].y;
-    float z = cycleStartPoints[leg].z - (liftHeight * s);
-    
-    p = Vector3(x,y,z);
-  }
-  
+        Vector3 p = getRectFootPos(i, phase);
+        moveToPos(i, p);
+    }
 
 
-  p = p.bodyToLeg(legAngles[leg]);
-  Serial.print("x:");
-  Serial.print(p.x);
-  Serial.print(" y:");
-  Serial.print(p.y);
-  Serial.print(" z:");
-  Serial.println(p.z);
-
-  return p;
-
+    gaitIncrement = forwardAmount / 100.0f * 0.13f;
+    //Serial.println(gaitIncrement);
+    gaitPhase += gaitIncrement;   // small increment each loop
+    //gaitPhase += 0.13; (MAX SPEED)
+    if (gaitPhase >= 1.0f) gaitPhase -= 1.0f;
 }
+
+Vector3 getRectFootPos(int leg, float phase) {
+    Vector3 center = homeFoot[leg];
+
+    // Convert body-forward step into this leg's frame/direction
+    Vector2 d = Vector2(stepLength * 0.5, 0.0).bodyToLeg(legAngles[leg]);
+
+    // Serial.print("Leg ");
+    // Serial.print(leg);
+    // Serial.print(" ");
+    // Serial.print("xleg:");
+    // Serial.print(d.x * strideMultiplier[leg]);
+    // Serial.print("yleg:");
+    // Serial.println(d.y);
+    
+    float turnScale = turnAmount / 100.0f;
+    d.x = strideMultiplier[leg] * d.x + (stepLength * turnScale);
+
+    Vector3 backPoint(
+        center.x - d.x,
+        center.y - d.y,
+        center.z
+    );
+
+    Vector3 frontPoint(
+        center.x + d.x,
+        center.y + d.y,
+        center.z
+    );
+
+    
+
+    Vector3 p;
+
+    // segment boundaries
+    const float stanceEnd = 0.50f;
+    const float upEnd     = 0.65f;
+    const float swingEnd  = 0.85f;
+    const float downEnd   = 1.00f;
+
+    if (phase < stanceEnd) {
+        // 1) Stance: front -> back on ground
+        legStates[leg] = Propelling;
+        float s = phase / stanceEnd;
+
+        p.x = frontPoint.x + (backPoint.x - frontPoint.x) * s;
+        p.y = frontPoint.y + (backPoint.y - frontPoint.y) * s;
+        p.z = center.z;
+    }
+    else if (phase < upEnd) {
+        // 2) Up: raise vertically at back point
+        legStates[leg] = Up;
+        float s = (phase - stanceEnd) / (upEnd - stanceEnd);
+
+        p.x = backPoint.x;
+        p.y = backPoint.y;
+        p.z = center.z + liftHeight * s;
+    }
+    else if (phase < swingEnd) {
+        // 3) Swing: back -> front at raised height
+        legStates[leg] = Lifting;
+        float s = (phase - upEnd) / (swingEnd - upEnd);
+
+        p.x = backPoint.x + (frontPoint.x - backPoint.x) * s;
+        p.y = backPoint.y + (frontPoint.y - backPoint.y) * s;
+        p.z = center.z + liftHeight;
+    }
+    else {
+        // 4) Down: lower vertically at front point
+        legStates[leg] = Down;
+        float s = (phase - swingEnd) / (downEnd - swingEnd);
+
+        p.x = frontPoint.x;
+        p.y = frontPoint.y;
+        p.z = center.z + liftHeight * (1.0f - s);
+    }
+
+    return p;
+}
+
 
 void simpleWalkState(){
   // Compute stride vectors for each leg
   Vector2 stepVec[6];
 
   for(int i = 0; i < 6; i++){
-    stepVec[i] = Vector2(40.0, 0.0).bodyToLeg(legAngles[i]);
+    stepVec[i] = Vector2(60.0, 0.0).bodyToLeg(legAngles[i]);
     Serial.print(i);
     Serial.print(" -> ");
     Serial.print(stepVec[i].x);
@@ -166,17 +132,17 @@ void simpleWalkState(){
   }
 
   // ---------- Tripod A Lift ----------
-  moveToPos(0, Vector3(-stepVec[0].x, 150 + stepVec[0].y, -100));
+  moveToPos(0, Vector3(-stepVec[0].x, 150 + stepVec[0].y, -50));
   moveToPos(3, Vector3(0,150, -100));
-  moveToPos(4, Vector3(stepVec[4].x, 150 + stepVec[4].y, -100));
+  moveToPos(4, Vector3(stepVec[4].x, 150 + stepVec[4].y, -50));
 
 
   delay(3000);
 
   // ---------- Tripod A Step Forward ----------
-  moveToPos(0, Vector3( stepVec[0].x, 150 + stepVec[0].y, -100));
+  moveToPos(0, Vector3( stepVec[0].x, 150 + stepVec[0].y, -50));
   moveToPos(3, Vector3(-30, 150, -100));
-  moveToPos(4, Vector3( -stepVec[4].x, 150 + stepVec[4].y, -100));
+  moveToPos(4, Vector3( -stepVec[4].x, 150 + stepVec[4].y, -50));
 
   delay(3000);
 
@@ -188,9 +154,9 @@ void simpleWalkState(){
   delay(3000);
 
   // ---------- Tripod B Lift ----------
-  moveToPos(1, Vector3(stepVec[1].x, 150 + -stepVec[1].y, -100));
+  moveToPos(1, Vector3(stepVec[1].x, 150 + -stepVec[1].y, -50));
   moveToPos(2, Vector3(0, 150, -100));
-  moveToPos(5, Vector3(-stepVec[5].x, 150 + -stepVec[5].y, -100));
+  moveToPos(5, Vector3(-stepVec[5].x, 150 + -stepVec[5].y, -50));
 
   delay(3000);
 
@@ -202,9 +168,9 @@ void simpleWalkState(){
   delay(3000);
 
   // ---------- Tripod B Step Forward ----------
-  moveToPos(1, Vector3(-stepVec[1].x, 150 + -stepVec[1].y, -100));
+  moveToPos(1, Vector3(-stepVec[1].x, 150 + -stepVec[1].y, -50));
   moveToPos(2, Vector3(30, 150, -100));
-  moveToPos(5, Vector3(stepVec[5].x, 150 + -stepVec[5].y, -100));
+  moveToPos(5, Vector3(stepVec[5].x, 150 + -stepVec[5].y, -50));
 
   delay(3000);
 
@@ -216,9 +182,9 @@ void simpleWalkState(){
   delay(3000);
 
   // ---------- Tripod A Lift Again ----------
-  moveToPos(0, Vector3(-stepVec[0].x, 150 + stepVec[0].y, -100));
+  moveToPos(0, Vector3(-stepVec[0].x, 150 + stepVec[0].y, -50));
   moveToPos(3, Vector3(0, 150, -100));
-  moveToPos(4, Vector3(stepVec[4].x, 150 + stepVec[4].y, -100));
+  moveToPos(4, Vector3(stepVec[4].x, 150 + stepVec[4].y, -50));
 
   delay(3000);
 

@@ -65,7 +65,7 @@ public:
     float xleg = x * cos(angleRad) + y * sin(angleRad);
     float yleg = -1 * x * sin(angleRad) + y * cos(angleRad);
 
-    return Vector2 (xleg, yleg);
+    return Vector2 (abs(xleg), yleg);
 
   }
 };
@@ -116,6 +116,10 @@ public:
     return Vector3(x+val.x, y+val.y, z+val.z);
   }
 
+  Vector3 operator-(Vector3 val) {
+    return Vector3(x-val.x, y-val.y, z-val.z);
+  }
+
   String toString() {
     String xs = String(x);
     String ys = String(y);
@@ -127,12 +131,12 @@ public:
   
   Vector3 bodyToLeg(float angle)
   {
-    float angleRad = angle * (PI / 180);
+    float a = angle * PI / 180.0f;
 
-    float xleg = x * cos(angleRad) + y * sin(angleRad);
-    float yleg = -1 * x * sin(angleRad) + y * cos(angleRad);
+    float xleg = x * cos(a) - y * sin(a);
+    float yleg = x * sin(a) + y * cos(a);
 
-    return Vector3 (xleg, yleg, z);
+    return Vector3 (abs(xleg), yleg, z);
 
   }
 

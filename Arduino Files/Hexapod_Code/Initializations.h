@@ -29,30 +29,18 @@ float legLength = shoulderLength+elbowLength+wristLength;  // Total extended leg
 // Movement control values (set by autonomous mode or user input)
 Vector2 directionVector; //The Direction of movement with x being foward y sideways
 float forwardAmount;  // Desired forward/backward speed (0-100)
-float turnAmount;     // Desired rotation amount (negative=left, positive=right)
+float stepLength;  
+float turnAmount;     // Desired rotation speed amount (negative=left, positive=right)
 float liftHeight;
 
 // ============ POSITION TRACKING ============
-// Current 3D position (x, y, z) of each leg's endpoint
-// ============ POSITION TRACKING ============
 // Current 3D position (x, y, z) of each leg's foot endpoint in space
 Vector3 currentPoints[6];
-// Starting position at the beginning of a gait cycle for each leg
-Vector3 cycleStartPoints[6];
-
-// ============ ROTATION/ANGLE TRACKING ============
-// Current rotation angles (coxa, femur, tibia) for each servo (degrees)
-Vector3 currentRot(180, 0, 180);
-// Target rotation angles to move servos toward (degrees)
-Vector3 targetRot(180, 0, 180);
 
 // ============ GAIT PATTERN MULTIPLIERS ============
 // Stride direction multiplier for each leg (flips front/back pairs)
 // Legs 0,1,2: stride forward (+1), Legs 3,4,5: stride backward (-1)
-float strideMultiplier[6] = {-1, 1, -1, 1, -1, 1};
-// Rotation movement multiplier during turning (controls direction bias)
-// Pattern: -1 (left), 0 (center), 1 (right) repeated for pairs
-float rotationMultiplier[6] = {-1, 1, 0, 0, -1 , 1};
+float strideMultiplier[6] = {1, -1, 1, -1, 1, -1};
 
 //=========== LEG PIVOT POSITIONS AND ANGLES ==========
 Vector2 legPivots[6] = {
@@ -65,20 +53,13 @@ Vector2 legPivots[6] = {
 };
 
 float legAngles[6] = {
-   -35.739,   // front left 0
-    35.739,   // front right 1
-   -90,   // middle left 2
-    -270,   // middle right 3
-  -125.739,   // rear left 4
-   125.739    // rear right 5
+  35.739,   // front left 0
+  35.739,   // front right 1
+  0,   // middle left 2
+  180,   // middle right 3
+  144.261,   // rear left 4
+  144.261   // rear right 5
 };
-
-
-// ============ BEZIER CURVE CONTROL POINTS ============
-// Control points for Bezier curve during propelling phase (leg pushing)
-Vector3 ControlPoints[10];
-// Control points for Bezier curve during rotation/turning movement
-Vector3 RotateControlPoints[10];
 
 // ============ STATE ENUMERATIONS ============
 // Main hexapod operating state machine
@@ -103,15 +84,10 @@ enum LegState {
 // Total system runtime in milliseconds since startup
 long elapsedTime = 0;
 
-// ============ GAIT CYCLE CONTROL ============
-// Total number of discrete steps/points in one complete gait cycle
-float points = 1000;
-// Current progress through gait cycle for each leg (0 to points, then resets)
-int cycleProgress[6];
+
 // Current state (Propelling/Lifting/Standing/Reset) of each leg
 LegState legStates[6];
-// Progress counter for standing state animations when not walking
-int standProgress = 0;
+
 
 // ============ STATE VARIABLES ============
 // Current main operating state (Initialize, Stand, or Walk)
@@ -119,15 +95,4 @@ State currentState = Initialize;
 
 //Previous State
 State previousState = Initialize;
-
-// ============ BODY POSITION & HEIGHT CONTROL ============
-// Vertical adjustment applied when standing (allows raising/lowering body)
-float standingDistanceAdjustment = 0;
-
-// Base Z-distance from body center to ground (negative = below body)
-float distanceFromGroundBase = -60;
-// Current height of leg feet from ground (can be adjusted for terrain)
-float distanceFromGround = 50;
-// Target height to gradually move toward
-float targetDistanceFromGround = 0;
 

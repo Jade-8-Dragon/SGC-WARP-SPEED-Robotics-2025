@@ -46,24 +46,12 @@ void setup(){
 
   // ============ WALKING STATE VARIABLES ============
   // Movement control values (set by autonomous mode or user input)
-  directionVector = Vector2(0, 0);  // Desired movement direction and magnitude (x=forward/back, y=sideways)
-  forwardAmount = 50;  // Desired forward/backward speed
-  turnAmount = 0;     // Desired rotation amount
+  forwardAmount = 0;
+  stepLength = 50;  // Desired forward/backward speed
+  turnAmount = 0;
+  liftHeight = 80;     // Desired rotation amount
   //AssemblySetup();
   stateInitialize();
-
-  for(int i = 0; i<6;i++){
-    Vector2 v = Vector2(40,0).bodyToLeg(legAngles[i]);
-
-    Serial.print(i);
-    Serial.print(" -> ");
-    Serial.print(v.x);
-    Serial.print(" , ");
-    Serial.print(v.y);
-
-    Serial.println(currentPoints[i].toString());
-  }
-
 }
 
 // ============ MAIN LOOP - RUNS CONTINUOUSLY ============
@@ -73,10 +61,14 @@ void loop() {
   readSerial();
   if(newData){
     forwardAmount = receivedBytes[0];
-    turnAmount    = receivedBytes[1];
-    liftHeight    = receivedBytes[2];
+    stepLength    = receivedBytes[1];
+    turnAmount    = receivedBytes[2];
+    liftHeight    = receivedBytes[3];
 
     Serial.print("Forward Amount = ");
+    Serial.println(forwardAmount, HEX);
+
+    Serial.print("Step Length = ");
     Serial.println(forwardAmount, HEX);
 
     Serial.print("Turn Amount = ");
@@ -87,7 +79,9 @@ void loop() {
 
     newData = false;
   }
-
+  printLegPositions();
+  WalkState();
+  //simpleWalkState();
 
  //State machine - call appropriate state function based on current state
   // switch(currentState) {
@@ -162,22 +156,6 @@ void attach_servos() {
   leg5Shoulder.attach(leg5.shoulder);
   leg5Elbow.attach(leg5.elbow);
   leg5Wrist.attach(leg5.wrist);
-}
-
-// ============ GAIT CYCLE MANAGEMENT ============
-
-// Save the current foot position as the starting point for this leg's gait cycle
-// Used when a leg transitions from lifting to propelling phase
-void setCycleStartPoints(int leg) {
-  cycleStartPoints[leg] = currentPoints[leg];
-}
-
-// Save starting positions for ALL legs at once
-// Bulk operation for synchronizing cycle start points across entire hexapod
-void setCycleStartPoints() {
-  for (int i = 0; i < 6; i++) {
-    cycleStartPoints[i] = currentPoints[i];
-  }
 }
 
 // ============ SERVO CONTROL FUNCTIONS ============
@@ -294,7 +272,7 @@ void moveToPos(int leg, Vector3 pos) {
   // Serial.println("====================");
   
   // Store calculated angles as target
-  targetRot = Vector3(constrain(theta1,0,180), constrain(theta2,0,180), constrain(theta3, 0, 180));
+  Vector3 targetRot = Vector3(constrain(theta1,0,180), constrain(theta2,0,180), constrain(theta3, 0, 180));
 
   // Convert angles to PWM pulse widths
   int shoulderMicroseconds = angleToMicroseconds(targetRot.x);
@@ -348,4 +326,36 @@ void moveToPos(int leg, Vector3 pos) {
       break;
   }
   return;
+}
+
+void printLegPositions() {
+  Serial.println("------------------------");
+  Serial.print("FWDAMNT: ");
+  Serial.print(forwardAmount);
+  Serial.print(" STPLNGTH: ");
+  Serial.print(stepLength);
+  Serial.print(" TURNAMNT: ");
+  Serial.print(turnAmount);
+  Serial.print(" LFTHEIGHT: ");
+  Serial.print(liftHeight);
+  Serial.println();
+    Serial.println("LEG  |   X   |   Y   |  Z  | STATE");
+    for(int i = 0; i < 6; i++) {
+        Serial.print("  ");
+        Serial.print(i);
+        Serial.print("  | ");
+        Serial.print(currentPoints[i].x, 1);
+        Serial.print(" | ");
+        Serial.print(currentPoints[i].y, 1);
+        Serial.print(" | ");
+        Serial.print(currentPoints[i].z, 1);
+        Serial.print(" | ");
+        switch(legStates[i]) {
+            case Propelling: Serial.println("PROP"); break;
+            case Up:         Serial.println("UP  "); break;
+            case Lifting:    Serial.println("LIFT"); break;
+            case Down:       Serial.println("DOWN"); break;
+            default:         Serial.println("----"); break;
+        }
+    }
 }
