@@ -45,18 +45,34 @@ def main():
  
     
     
-    while True:
+    
        
      
-        print(f"1st LIDAR range: {sensor1.range/25.4}in") 
-        
-        print(f"2nd LIDAR range: {sensor2.range/25.4}in")    
-
-        time.sleep(1)
+    print(f"1st LIDAR range: {sensor1.range/25.4}in") 
     
+    print(f"2nd LIDAR range: {sensor2.range/25.4}in")    
+
+    time.sleep(.1)
+    if(hole(sensor1.range/25.4,sensor2.range/25.4)):
+         print("HOLE DETECTED!")
+         return True
+    else:
+        return False
             
           
     pass
+    
+def hole(dist1,dist2):
+    #dist 1 straight down, dist 2 angled
+    diff = (dist2/1.41421)-dist1
+    print(f"Vertical Difference: {diff} in")
+    threshold = 3 #in
+    if diff > threshold:
+        return True
+        
+    else:
+        return False
+        
 if __name__ == "__main__":
     main()
     pass
